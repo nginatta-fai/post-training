@@ -1,7 +1,5 @@
 import torch
-from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from trl import SFTConfig, SFTTrainer
 
 def generate_response(model, tokenizer, user_message, system_message=None, max_token=100):
     messages = []
@@ -59,34 +57,3 @@ def load_model_and_tokenizer(model_name, USE_GPU=False):
         tokenizer.pad_token = tokenizer.eos_token
 
     return model, tokenizer
-
-def run(model_name, dataset_path, questions, USE_GPU):
-    model, tokenizer = load_model_and_tokenizer(model_name, USE_GPU)
-
-    train_dataset = load_dataset(dataset_path)['train']
-    if not USE_GPU:
-        train_dataset=train_dataset.select(range(150))
-
-    sft_config = SFTConfig(
-        learning_rate=8e-5,
-        num_train_epochs=1,
-        per_device_train_batch_size=1,
-        gradient_accumulation_steps=8,
-        gradient_checkpointing=False,
-        logging_steps=2
-    )
-
-    sft_trainer = SFTTrainer(
-        model=model,
-        args=sft_config,
-        train_dataset=train_dataset,
-        processing_class=tokenizer
-    )
-
-    sft_trainer.train()
-
-    if not USE_GPU: # move model to CPU when GPU isn’t requested
-        sft_trainer.model.to("cpu")
-    
-    test_model_with_questions(sft_trainer.model, tokenizer, questions, 
-                          title="Base Model (After SFT) Output")
